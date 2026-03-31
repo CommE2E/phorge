@@ -7,6 +7,7 @@ final class DifferentialDiff
     PhabricatorExtendedPolicyInterface,
     HarbormasterBuildableInterface,
     HarbormasterCircleCIBuildableInterface,
+    HarbormasterGitHubActionsBuildableInterface,
     HarbormasterBuildkiteBuildableInterface,
     PhabricatorApplicationTransactionInterface,
     PhabricatorDestructibleInterface,
@@ -645,6 +646,89 @@ final class DifferentialDiff
     $ref = $this->getStagingRef();
     $ref = preg_replace('(^refs/tags/)', '', $ref);
     return $ref;
+  }
+
+
+/* -(  HarbormasterGitHubActionsBuildableInterface  )------------------------ */
+
+
+  public function getGitHubActionsRepositoryURI() {
+    $diff_phid = $this->getPHID();
+    $repository_phid = $this->getRepositoryPHID();
+    if (!$repository_phid) {
+      throw new Exception(
+        pht(
+          'This diff ("%s") is not associated with a repository. A diff '.
+          'must belong to a tracked repository to be built by GitHub '.
+          'Actions.',
+          $diff_phid));
+    }
+
+    $repository = id(new PhabricatorRepositoryQuery())
+      ->setViewer(PhabricatorUser::getOmnipotentUser())
+      ->withPHIDs(array($repository_phid))
+      ->executeOne();
+    if (!$repository) {
+      throw new Exception(
+        pht(
+          'This diff ("%s") is associated with a repository ("%s") which '.
+          'could not be loaded.',
+          $diff_phid,
+          $repository_phid));
+    }
+
+    $staging_uri = $repository->getStagingURI();
+    if (!$staging_uri) {
+      throw new Exception(
+        pht(
+          'This diff ("%s") is associated with a repository ("%s") that '.
+          'does not have a Staging Area configured. You must configure a '.
+          'GitHub-hosted Staging Area to use GitHub Actions integration.',
+          $diff_phid,
+          $repository_phid));
+    }
+
+    $details =
+      HarbormasterGitHubActionsRepositoryURI::newRepositoryDetailsFromURI(
+        $staging_uri);
+    if (!$details) {
+      throw new Exception(
+        pht(
+          'This diff ("%s") is associated with a repository ("%s") that '.
+          'does not have a Staging Area ("%s") that is hosted on GitHub. '.
+          'GitHub Actions revision builds require the Staging Area for the '.
+          'repository to be hosted there.',
+          $diff_phid,
+          $repository_phid,
+          $staging_uri));
+    }
+
+    return $staging_uri;
+  }
+
+  public function getGitHubActionsBaseRef() {
+    return 'refs/tags/phabricator/base/'.$this->getID();
+  }
+
+  public function getGitHubActionsDiffRef() {
+    return $this->getStagingRef();
+  }
+
+  public function getGitHubActionsDiffID() {
+    return $this->getID();
+  }
+
+  public function getGitHubActionsRevisionID() {
+    $revision_id = $this->getRevisionID();
+    if (!$revision_id) {
+      throw new Exception(
+        pht(
+          'This diff ("%s") is not attached to a Differential revision. '.
+          'GitHub Actions integration only supports revision builds.',
+          $this->getPHID()));
+    }
+
+    return $revision_id;
   }
 
 

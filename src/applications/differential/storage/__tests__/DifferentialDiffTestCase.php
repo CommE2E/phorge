@@ -110,4 +110,56 @@ EODIFF;
 
   }
 
+  public function testGitHubActionsMetadata() {
+    $repository = $this->newTestRepository(
+      'git@github.com:example/repository.git');
+
+    $diff = id(new DifferentialDiff())
+      ->setID(19657)
+      ->setRepositoryPHID($repository->getPHID())
+      ->setRevisionID(8123);
+
+    $this->assertEqual(
+      'git@github.com:example/repository.git',
+      $diff->getGitHubActionsRepositoryURI());
+    $this->assertEqual(
+      'refs/tags/phabricator/base/19657',
+      $diff->getGitHubActionsBaseRef());
+    $this->assertEqual(
+      'refs/tags/phabricator/diff/19657',
+      $diff->getGitHubActionsDiffRef());
+    $this->assertEqual(19657, $diff->getGitHubActionsDiffID());
+    $this->assertEqual(8123, $diff->getGitHubActionsRevisionID());
+  }
+
+  public function testGitHubActionsRejectsNonGitHubStagingURI() {
+    $repository = $this->newTestRepository('ssh://git@example.com/repository');
+
+    $diff = id(new DifferentialDiff())
+      ->setID(19657)
+      ->setRepositoryPHID($repository->getPHID())
+      ->setRevisionID(8123);
+
+    $caught = null;
+    try {
+      $diff->getGitHubActionsRepositoryURI();
+    } catch (Exception $ex) {
+      $caught = $ex;
+    }
+
+    $this->assertTrue($caught instanceof Exception);
+  }
+
+  private function newTestRepository($staging_uri) {
+    $viewer = $this->generateNewTestUser();
+    $suffix = Filesystem::readRandomCharacters(8);
+
+    return PhabricatorRepository::initializeNewRepository($viewer)
+      ->setName('Repository '.$suffix)
+      ->setCallsign('T'.phutil_utf8_strtoupper($suffix))
+      ->setVersionControlSystem('git')
+      ->setDetail('staging-uri', $staging_uri)
+      ->save();
+  }
+
 }
