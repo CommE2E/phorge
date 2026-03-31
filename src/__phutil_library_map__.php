@@ -1524,6 +1524,7 @@ phutil_register_library_map(array(
     'HarbormasterGitHubActionsBuildableInterface' => 'applications/harbormaster/interface/HarbormasterGitHubActionsBuildableInterface.php',
     'HarbormasterGitHubActionsHookHandler' => 'applications/harbormaster/integration/githubactions/HarbormasterGitHubActionsHookHandler.php',
     'HarbormasterGitHubActionsRepositoryURI' => 'applications/harbormaster/integration/githubactions/HarbormasterGitHubActionsRepositoryURI.php',
+    'HarbormasterGitHubActionsTestBuildable' => 'applications/harbormaster/integration/githubactions/__tests__/HarbormasterGitHubActionsTestCase.php',
     'HarbormasterGitHubActionsTestCase' => 'applications/harbormaster/integration/githubactions/__tests__/HarbormasterGitHubActionsTestCase.php',
     'HarbormasterHTTPRequestBuildStepImplementation' => 'applications/harbormaster/step/HarbormasterHTTPRequestBuildStepImplementation.php',
     'HarbormasterHookController' => 'applications/harbormaster/controller/HarbormasterHookController.php',
@@ -7768,6 +7769,10 @@ phutil_register_library_map(array(
     'HarbormasterGitHubActionsBuildStepImplementation' => 'HarbormasterBuildStepImplementation',
     'HarbormasterGitHubActionsHookHandler' => 'HarbormasterHookHandler',
     'HarbormasterGitHubActionsRepositoryURI' => 'Phobject',
+    'HarbormasterGitHubActionsTestBuildable' => array(
+      'Phobject',
+      'HarbormasterGitHubActionsBuildableInterface',
+    ),
     'HarbormasterGitHubActionsTestCase' => 'PhabricatorTestCase',
     'HarbormasterHTTPRequestBuildStepImplementation' => 'HarbormasterBuildStepImplementation',
     'HarbormasterHookController' => 'HarbormasterController',
