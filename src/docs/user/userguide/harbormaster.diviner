@@ -200,6 +200,12 @@ Once you've configured a staging area, have your build system clone the staging
 area repository and do a checkout of the relevant tag in order to perform a
 build.
 
+If the staging area is hosted on GitHub, you can also run revision builds with
+GitHub Actions. In that configuration, Harbormaster dispatches a workflow in
+the staging repository and the workflow should check out the staged diff tag
+for the revision, like `phabricator/diff/123`. Git also pushes a matching
+base tag, like `phabricator/base/123`, for the same diff.
+
 **`arc patch`**: You can also have the build system pull changes out of
 Phorge as patches and apply them with `arc patch`. This mechanism is the
 most complex to configure and debug, and is much less reliable than using
