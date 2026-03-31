@@ -286,6 +286,9 @@ final class PhabricatorStorageManagementDumpWorkflow
       $argv[] = $port;
     }
 
+    $argv[] = '--skip-lock-tables';
+    $argv[] = '--no-tablespaces';
+
     $commands = array();
     foreach ($targets as $target) {
       $target_argv = $argv;
