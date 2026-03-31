@@ -17,6 +17,8 @@ final class HarbormasterBuildTargetQuery
   private $dateCompletedMin;
   private $dateCompletedMax;
   private $statuses;
+  private $externalSystem;
+  private $externalIDs;
 
   private $needBuildSteps;
 
@@ -60,6 +62,16 @@ final class HarbormasterBuildTargetQuery
 
   public function withTargetStatuses(array $statuses) {
     $this->statuses = $statuses;
+    return $this;
+  }
+
+  public function withExternalSystem($external_system) {
+    $this->externalSystem = $external_system;
+    return $this;
+  }
+
+  public function withExternalIDs(array $external_ids) {
+    $this->externalIDs = $external_ids;
     return $this;
   }
 
@@ -150,6 +162,20 @@ final class HarbormasterBuildTargetQuery
         $conn,
         'targetStatus IN (%Ls)',
         $this->statuses);
+    }
+
+    if ($this->externalSystem !== null) {
+      $where[] = qsprintf(
+        $conn,
+        'externalSystem = %s',
+        $this->externalSystem);
+    }
+
+    if ($this->externalIDs !== null) {
+      $where[] = qsprintf(
+        $conn,
+        'externalID IN (%Ls)',
+        $this->externalIDs);
     }
 
     return $where;

@@ -17,6 +17,8 @@ final class HarbormasterBuildTarget
   protected $dateStarted;
   protected $dateCompleted;
   protected $buildGeneration;
+  protected $externalSystem;
+  protected $externalID;
 
   const STATUS_PENDING = 'target/pending';
   const STATUS_BUILDING = 'target/building';
@@ -111,6 +113,8 @@ final class HarbormasterBuildTarget
         'dateStarted' => 'epoch?',
         'dateCompleted' => 'epoch?',
         'buildGeneration' => 'uint32',
+        'externalSystem' => 'text32?',
+        'externalID' => 'text64?',
 
         // T6203/NULLABILITY
         // This should not be nullable.
@@ -128,6 +132,9 @@ final class HarbormasterBuildTarget
         ),
         'key_created' => array(
           'columns' => array('dateCreated'),
+        ),
+        'key_external' => array(
+          'columns' => array('externalSystem', 'externalID'),
         ),
       ),
     ) + parent::getConfiguration();
