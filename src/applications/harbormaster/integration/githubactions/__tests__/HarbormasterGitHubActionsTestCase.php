@@ -71,11 +71,48 @@ final class HarbormasterGitHubActionsTestCase
 
     $this->assertEqual(
       'https://api.github.com/repos/example/repository/actions/'.
-      'workflows/.github%2Fworkflows%2Fci.yml/dispatches',
+      'workflows/ci.yml/dispatches',
       HarbormasterGitHubActionsBuildStepImplementation::newDispatchURI(
         'example',
         'repository',
-        '.github/workflows/ci.yml'));
+        'ci.yml'));
+
+    $this->assertTrue(
+      HarbormasterGitHubActionsBuildStepImplementation::
+        shouldRetryDispatchStatus(500));
+
+    $this->assertTrue(
+      HarbormasterGitHubActionsBuildStepImplementation::
+        shouldRetryDispatchStatus(502));
+
+    $this->assertFalse(
+      HarbormasterGitHubActionsBuildStepImplementation::
+        shouldRetryDispatchStatus(404));
+
+    $this->assertEqual(
+      7,
+      HarbormasterGitHubActionsBuildStepImplementation::
+        getDispatchRetryDelay(
+          array(
+            array('Retry-After', '7'),
+          ),
+          1));
+
+    $this->assertEqual(
+      2,
+      HarbormasterGitHubActionsBuildStepImplementation::
+        getDispatchRetryDelay(
+          array(
+            array('Retry-After', '1'),
+          ),
+          2));
+
+    $this->assertEqual(
+      3,
+      HarbormasterGitHubActionsBuildStepImplementation::
+        getDispatchRetryDelay(
+          array(),
+          3));
 
     $this->assertEqual(
       array(

@@ -6,6 +6,8 @@ final class HarbormasterGitHubActionsBuildStepImplementation
   const API_VERSION = '2026-03-10';
   const EXTERNAL_SYSTEM = 'github.actions';
   const URI_ARTIFACT_KEY = 'github-actions.uri';
+  const DISPATCH_COLLISION_YIELD = 2;
+  const DISPATCH_SPACING_DELAY = 1;
 
   public function getName() {
     return pht('Build with GitHub Actions');
@@ -173,6 +175,31 @@ EOTEXT
     );
   }
 
+  public static function shouldRetryDispatchStatus($status_code) {
+    return ($status_code >= 500 && $status_code < 600);
+  }
+
+  public static function newDispatchLock(array $details) {
+    return PhabricatorGlobalLock::newLock(
+      'harbormaster.githubactions.dispatch',
+      array(
+        'owner' => idx($details, 'owner'),
+        'repo' => idx($details, 'name'),
+      ));
+  }
+
+  public static function getDispatchRetryDelay(
+    array $headers,
+    $default_delay) {
+
+    $retry_after = BaseHTTPFuture::getHeader($headers, 'Retry-After');
+    if ($retry_after !== null && is_numeric($retry_after)) {
+      return max((int)$retry_after, (int)$default_delay);
+    }
+
+    return (int)$default_delay;
+  }
+
   public static function upsertURIArtifact(
     PhabricatorUser $viewer,
     HarbormasterBuildTarget $build_target,
@@ -253,27 +280,66 @@ EOTEXT
     $json_data = phutil_json_encode($payload);
 
     $token = $api_token->getSecret()->openEnvelope();
-    $future = id(new HTTPSFuture($uri, $json_data))
-      ->setMethod('POST')
-      ->addHeader('Content-Type', 'application/json')
-      ->addHeader('Accept', 'application/vnd.github+json')
-      ->addHeader('Authorization', "Bearer {$token}")
-      ->addHeader('User-Agent', 'Phorge Harbormaster')
-      ->addHeader('X-GitHub-Api-Version', self::API_VERSION)
-      ->setTimeout(60);
+    $dispatch_lock = self::newDispatchLock($details);
 
-    $this->resolveFutures(
-      $build,
-      $build_target,
-      array($future));
+    try {
+      $dispatch_lock->lock();
+    } catch (PhutilLockException $ex) {
+      throw new PhabricatorWorkerYieldException(
+        self::DISPATCH_COLLISION_YIELD);
+    }
 
-    $this->logHTTPResponse(
-      $build,
-      $build_target,
-      $future,
-      pht('GitHub Actions'));
+    $future = null;
+    $status = null;
+    $body = null;
+    $headers = array();
+    $attempt_limit = 3;
+    $did_attempt_dispatch = false;
 
-    list($status, $body) = $future->resolve();
+    try {
+      for ($attempt = 1; $attempt <= $attempt_limit; $attempt++) {
+        $future = id(new HTTPSFuture($uri, $json_data))
+          ->setMethod('POST')
+          ->addHeader('Content-Type', 'application/json')
+          ->addHeader('Accept', 'application/vnd.github+json')
+          ->addHeader('Authorization', "Bearer {$token}")
+          ->addHeader('User-Agent', 'Phorge Harbormaster')
+          ->addHeader('X-GitHub-Api-Version', self::API_VERSION)
+          ->setTimeout(60);
+
+        $this->resolveFutures(
+          $build,
+          $build_target,
+          array($future));
+
+        $this->logHTTPResponse(
+          $build,
+          $build_target,
+          $future,
+          pht('GitHub Actions (Attempt %d)', $attempt));
+
+        list($status, $body, $headers) = $future->resolve();
+        $did_attempt_dispatch = true;
+        if (!$status->isError()) {
+          break;
+        }
+
+        if (!self::shouldRetryDispatchStatus($status->getStatusCode())) {
+          throw new HarbormasterBuildFailureException();
+        }
+
+        if ($attempt < $attempt_limit) {
+          sleep(self::getDispatchRetryDelay($headers, $attempt));
+        }
+      }
+    } finally {
+      if ($did_attempt_dispatch) {
+        sleep(self::DISPATCH_SPACING_DELAY);
+      }
+
+      $dispatch_lock->unlock();
+    }
+
     if ($status->isError()) {
       throw new HarbormasterBuildFailureException();
     }
